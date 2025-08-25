@@ -9,9 +9,7 @@ from lama_inpaint import inpaint_img_with_lama
 
 
 def load_yolo_model(model_path: str):
-    """
-    Cargar el modelo YOLO.
-    """
+    """Cargar el modelo YOLO."""
     return YOLO(model_path)
 
 
@@ -48,23 +46,6 @@ def generate_mask(image_rgb, results, target_labels, output_dir):
 
     return final_mask, saved_masks
 
-def mask_touches_border(mask: np.ndarray) -> bool:
-    """
-    Revisa si la máscara toca algún borde de la imagen.
-    """
-    h, w = mask.shape
-
-    # Revisar bordes (izquierda, derecha, arriba, abajo)
-    if np.any(mask[:, 0]):  # Borde izquierdo
-        return True
-    if np.any(mask[:, -1]):  # Borde derecho
-        return True
-    if np.any(mask[0, :]):  # Borde superior
-        return True
-    if np.any(mask[-1, :]):  # Borde inferior
-        return True
-
-    return False
 
 def remove_objects_from_image(
     image_path: str,
@@ -102,17 +83,10 @@ def remove_objects_from_image(
     results = model(image_rgb)[0]
 
     # === GENERAR MÁSCARA ===
-    # === GENERAR MÁSCARA ===
     final_mask, _ = generate_mask(image_rgb, results, target_labels, output_dir)
 
     if np.any(final_mask):
         cv2.imwrite(output_mask_path, final_mask)
-
-        # 🚨 NUEVO: revisar si la fachada toca los bordes
-        if mask_touches_border(final_mask):
-            print(f"⚠️ La fachada en {image_name} está cortada por el borde de la imagen.")
-        else:
-            print(f"✅ La fachada en {image_name} está completa dentro de la imagen.")
 
         # === INPAINTING CON LAMA ===
         inpainted = inpaint_img_with_lama(image_rgb, final_mask, lama_config, lama_ckpt, device=device)

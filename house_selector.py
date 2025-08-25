@@ -24,6 +24,22 @@ def get_mask_center(mask: np.ndarray):
     return (cx, cy)
 
 
+def mask_touches_border(mask: np.ndarray) -> bool:
+    """
+    Revisa si la máscara toca algún borde de la imagen.
+    """
+    h, w = mask.shape
+    if np.any(mask[:, 0]):   # Izquierda
+        return True
+    if np.any(mask[:, -1]):  # Derecha
+        return True
+    if np.any(mask[0, :]):   # Arriba
+        return True
+    if np.any(mask[-1, :]):  # Abajo
+        return True
+    return False
+
+
 def find_house_in_image(image_path: str, model_path: str, house_label: str = "casa", results_dir: str = "results"):
     """
     Segmenta casas y devuelve solo la sección de la casa seleccionada.
@@ -60,11 +76,13 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
             center = get_mask_center(binary_mask)
+            touches_border = mask_touches_border(binary_mask)
             houses.append({
                 "mask": binary_mask,
                 "area": area,
                 "center": center,
-                "box": box
+                "box": box,
+                "touches_border": touches_border
             })
 
     if not houses:
@@ -97,8 +115,10 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     cv2.imwrite(cropped_path, cropped_house)
     cv2.imwrite(mask_path, selected["mask"])
 
+    if selected["touches_border"]:
+        print(f"⚠️ La casa seleccionada en {image_name} toca el borde de la imagen.")
+
     print(f"Casa seleccionada guardada en: {cropped_path}")
     print(f"Máscara guardada en: {mask_path}")
 
     return cropped_path, mask_path
-
