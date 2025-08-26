@@ -4,8 +4,8 @@ import torch
 import numpy as np
 from pathlib import Path
 from ultralytics import YOLO
-from facade_model.src.facade_model.utils import save_array_to_img
-from facade_model.src.facade_model.lama_inpaint import inpaint_img_with_lama
+from facade_model.utils import save_array_to_img
+from facade_model.lama_inpaint import inpaint_img_with_lama
 
 
 def load_yolo_model(model_path: str):
