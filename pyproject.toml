@@ -7,7 +7,7 @@ name = "facade-model"
 version = "0.1.0"
 description = "Library to remove objects from facades and select the principal facade"
 authors = [
-  { name = "William Prada", email = "@gmail.com" }
+  { name = "William Prada", email = "wpradabuitrago@gmail.com" }
 ]
 readme = "README.md"
 license = { text = "MIT" }
