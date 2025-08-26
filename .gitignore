@@ -26,4 +26,4 @@ results/
 # Ignorar resultados de entrenamiento
 runs/
 *.pt
-pretrained_models/*
+src/pretrained_models/*
