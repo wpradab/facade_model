@@ -5,7 +5,6 @@ import torch
 import yaml
 import glob
 import argparse
-from PIL import Image
 from omegaconf import OmegaConf
 from pathlib import Path
 
@@ -20,7 +19,7 @@ from saicinpainting.evaluation.utils import move_to_device
 from saicinpainting.training.trainers import load_checkpoint
 from saicinpainting.evaluation.data import pad_tensor_to_modulo
 
-from utils import load_img_to_array, save_array_to_img
+from facade_model.src.facade_model.utils import load_img_to_array, save_array_to_img
 
 
 @torch.no_grad()
