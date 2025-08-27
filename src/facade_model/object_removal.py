@@ -21,15 +21,18 @@ def generate_mask(image_rgb, results, target_labels, output_dir):
     final_mask = np.zeros((height, width), dtype=np.uint8)
 
     if results.masks is None:
-        return final_mask, []
+        return final_mask, [], []
 
     masks = results.masks.data.cpu().numpy()
     clases = results.boxes.cls.cpu().numpy()
     names = results.names
+    confs = results.boxes.conf.cpu().numpy()
+    boxes = results.boxes.xyxy.cpu().numpy()  # [x1, y1, x2, y2]
 
     saved_masks = []
+    detected_objects = []
 
-    for i, (mask, cls_id) in enumerate(zip(masks, clases)):
+    for i, (mask, cls_id, conf, box) in enumerate(zip(masks, clases, confs, boxes)):
         class_name = names[int(cls_id)]
         if class_name in target_labels:
             binary_mask = (mask * 255).astype(np.uint8)
@@ -44,7 +47,15 @@ def generate_mask(image_rgb, results, target_labels, output_dir):
             cv2.imwrite(mask_filename, binary_mask)
             saved_masks.append(mask_filename)
 
-    return final_mask, saved_masks
+            detected_objects.append({
+                "id": i,
+                "class": class_name,
+                "confidence": float(conf),
+                "bbox": [float(x) for x in box],  # [x1, y1, x2, y2]
+                "mask_path": mask_filename
+            })
+
+    return final_mask, saved_masks, detected_objects
 
 
 def remove_objects_from_image(
@@ -59,7 +70,7 @@ def remove_objects_from_image(
     """
     Detecta objetos en una imagen y los elimina usando YOLO + LaMa.
 
-    Retorna las rutas de salida (máscara final, imagen inpainted).
+    Retorna un diccionario con información de los objetos detectados y rutas de salida.
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -83,7 +94,15 @@ def remove_objects_from_image(
     results = model(image_rgb)[0]
 
     # === GENERAR MÁSCARA ===
-    final_mask, _ = generate_mask(image_rgb, results, target_labels, output_dir)
+    final_mask, _, detected_objects = generate_mask(image_rgb, results, target_labels, output_dir)
+
+    output_data = {
+        "image_name": image_name,
+        "input_image": image_path,
+        "detected_objects": detected_objects,
+        "output_mask": None,
+        "output_inpainted": None
+    }
 
     if np.any(final_mask):
         cv2.imwrite(output_mask_path, final_mask)
@@ -91,7 +110,10 @@ def remove_objects_from_image(
         # === INPAINTING CON LAMA ===
         inpainted = inpaint_img_with_lama(image_rgb, final_mask, lama_config, lama_ckpt, device=device)
         save_array_to_img(inpainted, output_inpainted_path)
-        return output_mask_path, output_inpainted_path
+
+        output_data["output_mask"] = output_mask_path
+        output_data["output_inpainted"] = output_inpainted_path
     else:
         print("No se encontraron objetos a eliminar en la imagen.")
-        return None, None
+
+    return output_data
