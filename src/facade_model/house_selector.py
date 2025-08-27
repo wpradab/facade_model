@@ -24,27 +24,38 @@ def get_mask_center(mask: np.ndarray):
     return (cx, cy)
 
 
-def mask_touches_border(mask: np.ndarray) -> bool:
+def border_contact_ratio(mask: np.ndarray) -> float:
     """
-    Revisa si la máscara toca algún borde de la imagen.
+    Calcula qué porcentaje del perímetro de la fachada toca el borde de la imagen.
     """
     h, w = mask.shape
-    if np.any(mask[:, 0]):   # Izquierda
-        return True
-    if np.any(mask[:, -1]):  # Derecha
-        return True
-    if np.any(mask[0, :]):   # Arriba
-        return True
-    if np.any(mask[-1, :]):  # Abajo
-        return True
-    return False
+    border_pixels = np.zeros_like(mask)
+
+    # Bordes de la imagen
+    border_pixels[:, 0] = 1      # izquierda
+    border_pixels[:, -1] = 1     # derecha
+    border_pixels[0, :] = 1      # arriba
+    border_pixels[-1, :] = 1     # abajo
+
+    intersection = np.logical_and(mask > 0, border_pixels > 0)
+    intersection_count = np.sum(intersection)
+
+    mask_perimeter = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+    perimeter_len = 0
+    for cnt in mask_perimeter:
+        perimeter_len += cv2.arcLength(cnt, True)
+
+    if perimeter_len == 0:
+        return 0.0
+
+    return intersection_count / perimeter_len
 
 
 def find_house_in_image(image_path: str, model_path: str, house_label: str = "casa", results_dir: str = "results"):
     """
     Segmenta casas y devuelve solo la sección de la casa seleccionada.
 
-    Si no encuentra ninguna casa, retorna (None, None).
+    Retorna (cropped_path, mask_path, toca_borde_bool).
     """
     # Preparar carpeta de resultados
     os.makedirs(results_dir, exist_ok=True)
@@ -63,7 +74,7 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
 
     if results.masks is None:
         print("No se encontraron máscaras en la imagen.")
-        return None, None
+        return None, None, False
 
     masks = results.masks.data.cpu().numpy()
     classes = results.boxes.cls.cpu().numpy()
@@ -76,7 +87,8 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
             center = get_mask_center(binary_mask)
-            touches_border = mask_touches_border(binary_mask)
+            ratio = border_contact_ratio(binary_mask)
+            touches_border = ratio > 0.25  # condición del 25%
             houses.append({
                 "mask": binary_mask,
                 "area": area,
@@ -87,9 +99,9 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
 
     if not houses:
         print("No se segmentaron casas en la imagen.")
-        return None, None
+        return None, None, False
 
-    # Centro de la imagen
+    # Punto central de la imagen
     img_center = (width // 2, height // 2)
 
     # Buscar casa que contiene el centro
@@ -99,7 +111,15 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             selected = h
             break
 
-    # Si no hay casa en el centro → tomar la más grande
+    # Si no hay casa en el centro → probar 25% más abajo
+    if selected is None:
+        shifted_center = (width // 2, int(height * 0.75))
+        for h in houses:
+            if h["mask"][shifted_center[1], shifted_center[0]] > 0:
+                selected = h
+                break
+
+    # Si tampoco se encuentra → tomar la más grande
     if selected is None:
         selected = max(houses, key=lambda x: x["area"])
 
@@ -116,9 +136,9 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     cv2.imwrite(mask_path, selected["mask"])
 
     if selected["touches_border"]:
-        print(f"⚠️ La casa seleccionada en {image_name} toca el borde de la imagen.")
+        print(f"⚠️ La casa seleccionada en {image_name} toca el borde de la imagen (>25% del perímetro).")
 
     print(f"Casa seleccionada guardada en: {cropped_path}")
     print(f"Máscara guardada en: {mask_path}")
 
-    return cropped_path, mask_path
+    return cropped_path, mask_path, selected["touches_border"]
