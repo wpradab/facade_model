@@ -81,9 +81,12 @@ results/                   # Resultados generados (máscaras, imágenes limpias,
    from facade_model import remove_objects_from_image
 
    target_labels = [
-       "person", "bicycle", "car", "motorcycle", "bus", "truck",
-       "tree", "dog", "cat", "bird", "chair", "couch"
-   ]
+    'person', 'bicycle', 'car', 'motorcycle', 'bus', 'train', 'truck',
+    'backpack', 'umbrella', 'handbag', 'suitcase', 'tree',
+    'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
+    'bench', 'chair', 'dog', 'cat', 'bird', 'couch',
+    'potted plant', 'dining table', 'teddy bear'
+]
 
    metadata_remove_objects = remove_objects_from_image(
        image_path=image_path,
