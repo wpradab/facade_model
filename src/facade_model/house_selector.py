@@ -53,6 +53,7 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     image_bgr = cv2.imread(image_path)
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     height, width = image_rgb.shape[:2]
+    image_area = width * height
 
     # === Cargar modelo ===
     model = load_yolo_model(model_path)
@@ -79,12 +80,13 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
         if class_name == house_label:
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
+            area_pct = (area / (width * height)) * 100  # área en porcentaje
             center = get_mask_center(binary_mask)
             borders = mask_touches_border(binary_mask)
             houses.append({
                 "id": i,
                 "mask": binary_mask,
-                "area": area,
+                "area": area_pct,  
                 "center": center,
                 "box": box,
                 "touch_border": borders
@@ -140,8 +142,8 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             "area": selected["area"],
             "center": selected["center"],
             "box": [float(x) for x in selected["box"]],
-            "touch_border": selected["touch_border"],  # lista de bordes
-            "incomplete_house": len(selected["touch_border"]) > 0,  # True/False
+            "touch_border": selected["touch_border"],
+            "incomplete_house": len(selected["touch_border"]) > 0,
             "mask_path": mask_path,
             "cropped_path": cropped_path
         }
