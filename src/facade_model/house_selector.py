@@ -86,7 +86,7 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             houses.append({
                 "id": i,
                 "mask": binary_mask,
-                "area": area_pct,  
+                "area": area_pct,
                 "center": center,
                 "box": box,
                 "touch_border": borders
