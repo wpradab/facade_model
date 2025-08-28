@@ -24,20 +24,23 @@ def get_mask_center(mask: np.ndarray):
     return (cx, cy)
 
 
-def mask_touches_border(mask: np.ndarray) -> bool:
+def mask_touches_border(mask: np.ndarray):
     """
-    Revisa si la máscara toca algún borde de la imagen.
+    Revisa qué bordes de la máscara tocan la imagen.
+    Devuelve una lista con los bordes: ["left", "right", "top", "bottom"].
     """
     h, w = mask.shape
+    borders = []
     if np.any(mask[:, 0]):   # Izquierda
-        return True
+        borders.append("left")
     if np.any(mask[:, -1]):  # Derecha
-        return True
+        borders.append("right")
     if np.any(mask[0, :]):   # Arriba
-        return True
+        borders.append("top")
     if np.any(mask[-1, :]):  # Abajo
-        return True
-    return False
+        borders.append("bottom")
+    return borders
+
 
 
 def find_house_in_image(image_path: str, model_path: str, house_label: str = "casa", results_dir: str = "results"):
@@ -77,14 +80,14 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
             center = get_mask_center(binary_mask)
-            touches_border = mask_touches_border(binary_mask)
+            borders = mask_touches_border(binary_mask)
             houses.append({
                 "id": i,
                 "mask": binary_mask,
                 "area": area,
                 "center": center,
                 "box": box,
-                "touches_border": touches_border
+                "touch_border": borders
             })
 
     if not houses:
@@ -137,7 +140,8 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
             "area": selected["area"],
             "center": selected["center"],
             "box": [float(x) for x in selected["box"]],
-            "touches_border": selected["touches_border"],
+            "touch_border": selected["touch_border"],  # lista de bordes
+            "incomplete_house": len(selected["touch_border"]) > 0,  # True/False
             "mask_path": mask_path,
             "cropped_path": cropped_path
         }
