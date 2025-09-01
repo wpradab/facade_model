@@ -1,5 +1,3 @@
----
-
 # 🏠 Pipeline de Limpieza y Selección de Casas
 
 Este repositorio contiene un pipeline en **Python** para la **detección de casas en imágenes satelitales o fotográficas**, incluyendo:
