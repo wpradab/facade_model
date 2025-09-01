@@ -83,7 +83,9 @@ def remove_objects_from_image(
     # === PREPARAR SALIDA ===
     image_name = Path(image_path).stem
     output_dir = os.path.join(base_output_dir, image_name)
-    os.makedirs(output_dir, exist_ok=True)
+
+    if not metadata_only:
+        os.makedirs(output_dir, exist_ok=True)
 
     output_mask_path = os.path.join(output_dir, "mask_final.png")
     output_inpainted_path = os.path.join(output_dir, "inpainted.jpg")
