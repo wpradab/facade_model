@@ -1,4 +1,3 @@
-
 ---
 
 # 🏠 Pipeline de Limpieza y Selección de Casas
@@ -8,6 +7,7 @@ Este repositorio contiene un pipeline en **Python** para la **detección de casa
 * Eliminación de objetos indeseados (vehículos, personas, árboles, etc.) mediante **YOLO + LaMa inpainting**.
 * Detección y recorte de casas usando un modelo entrenado personalizado.
 * Generación de metadatos de cada paso (objetos eliminados, máscaras y casas seleccionadas).
+* Opción de ejecutar en modo **solo metadata**, sin crear imágenes ni carpetas de salida.
 
 ---
 
@@ -51,36 +51,65 @@ results/                   # Resultados generados (máscaras, imágenes limpias,
 
 ## ⚙️ Pasos del pipeline
 
-1. **Clonar y configurar el repositorio**
+### 1. **Clonar y configurar el repositorio**
 
-   ```bash
-   git clone https://github.com/wpradab/facade_model.git
-   cd facade_model
-   pip install -e . --no-deps --force-reinstall
-   ```
+```bash
+git clone https://github.com/wpradab/facade_model.git
+cd facade_model
+pip install -e . --no-deps --force-reinstall
+```
 
-2. **Definir rutas de modelos**
+### 2. **Definir rutas de modelos**
 
-   ```python
-   model_path = "yolov8x-seg.pt"  # Modelo YOLO para segmentación de objetos
-   model_house_path = "pretrained_models/best.pt"  # Modelo entrenado de casas
+```python
+model_path = "yolov8x-seg.pt"  # Modelo YOLO para segmentación de objetos
+model_house_path = "pretrained_models/best.pt"  # Modelo entrenado de casas
 
-   lama_config = "facade_model/src/facade_model/lama/configs/prediction/default.yaml"
-   lama_ckpt = "pretrained_models/big-lama"
-   ```
+lama_config = "facade_model/src/facade_model/lama/configs/prediction/default.yaml"
+lama_ckpt = "pretrained_models/big-lama"
+```
 
-3. **Cargar imagen de entrada**
+### 3. **Cargar imagen de entrada**
 
-   ```python
-   image_path = "ruta/a/tu_imagen.jpg"
-   ```
+```python
+image_path = "ruta/a/tu_imagen.jpg"
+```
 
-4. **Remoción de objetos**
+### 3.1 **Extracción de metadata completa (opcional)**
 
-   ```python
-   from facade_model import remove_objects_from_image
+Si quieres obtener **toda la metadata** del pipeline (objetos eliminados + casas detectadas) **sin generar imágenes ni carpetas de salida**, puedes usar:
 
-   target_labels = [
+```python
+from facade_model import extract_facade_metadata
+
+# 📂 Imagen de entrada
+image_path = "ejemplo.jpg"
+
+# 🚀 Ejecutar función
+metadata = extract_facade_metadata(
+    image_path=image_path,
+    model_path=model_path,
+    model_house_path=model_house_path,
+    lama_config=lama_config,
+    lama_ckpt=lama_ckpt,
+    target_labels=target_labels,
+    base_output_dir="results",
+    house_label="casa",
+    metadata_only=True   # ✅ Evita creación de carpetas e imágenes
+)
+
+print("✅ Metadata completa extraída:")
+print(metadata)
+```
+
+---
+
+### 4. **Remoción de objetos**
+
+```python
+from facade_model import remove_objects_from_image
+
+target_labels = [
     'person', 'bicycle', 'car', 'motorcycle', 'bus', 'train', 'truck',
     'backpack', 'umbrella', 'handbag', 'suitcase', 'tree',
     'traffic light', 'fire hydrant', 'stop sign', 'parking meter',
@@ -88,36 +117,38 @@ results/                   # Resultados generados (máscaras, imágenes limpias,
     'potted plant', 'dining table', 'teddy bear'
 ]
 
-   metadata_remove_objects = remove_objects_from_image(
-       image_path=image_path,
-       model_path=model_path,
-       lama_config=lama_config,
-       lama_ckpt=lama_ckpt,
-       target_labels=target_labels,
-       base_output_dir="results"
-   )
-   print("✅ Elementos eliminados:", metadata_remove_objects)
-   ```
+metadata_remove_objects = remove_objects_from_image(
+    image_path=image_path,
+    model_path=model_path,
+    lama_config=lama_config,
+    lama_ckpt=lama_ckpt,
+    target_labels=target_labels,
+    base_output_dir="results",
+    metadata_only=False   # ⚡ Si True, solo devuelve metadata
+)
+print("✅ Elementos eliminados:", metadata_remove_objects)
+```
 
-5. **Selección de casas**
+### 5. **Selección de casas**
 
-   ```python
-   from facade_model import find_house_in_image
+```python
+from facade_model import find_house_in_image
 
-   metadata_house = find_house_in_image(
-       image_path=image_path,
-       model_path=model_house_path,
-       house_label="casa",   # Etiqueta usada en el entrenamiento
-       results_dir="results"
-   )
-   print("✅ Casa recortada:", metadata_house)
-   ```
+metadata_house = find_house_in_image(
+    image_path=image_path,
+    model_path=model_house_path,
+    house_label="casa",   # Etiqueta usada en el entrenamiento
+    results_dir="results",
+    metadata_only=False   # ⚡ Si True, solo devuelve metadata
+)
+print("✅ Casa recortada:", metadata_house)
+```
 
 ---
 
 ## 📊 Resultados esperados
 
-En la carpeta `results/` se generan:
+En la carpeta `results/` se generan (cuando `metadata_only=False`):
 
 * Imágenes sin objetos indeseados.
 * Máscaras aplicadas por LaMa.
@@ -127,6 +158,7 @@ En la carpeta `results/` se generan:
 
 ## 📝 Notas
 
+* Usa `metadata_only=True` en cualquiera de las funciones para evitar la creación de imágenes y carpetas, obteniendo únicamente la metadata.
 * El pipeline funciona en cualquier entorno Python (Linux, Windows o macOS).
 * El modelo de casas (`best.pt`) debe estar entrenado previamente y ubicado en la carpeta `pretrained_models/`.
 * El parámetro `house_label` debe coincidir con la etiqueta definida durante el entrenamiento.
