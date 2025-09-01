@@ -13,9 +13,10 @@ def load_yolo_model(model_path: str):
     return YOLO(model_path)
 
 
-def generate_mask(image_rgb, results, target_labels, output_dir):
+def generate_mask(image_rgb, results, target_labels, output_dir, metadata_only=False):
     """
-    Genera máscaras binarias para las clases de interés y devuelve la máscara final.
+    Genera máscaras binarias para las clases de interés y devuelve la máscara final y metadata.
+    Si metadata_only=True, no guarda imágenes en disco.
     """
     height, width = image_rgb.shape[:2]
     final_mask = np.zeros((height, width), dtype=np.uint8)
@@ -43,19 +44,23 @@ def generate_mask(image_rgb, results, target_labels, output_dir):
 
             final_mask = cv2.bitwise_or(final_mask, binary_mask)
 
-            mask_filename = os.path.join(output_dir, f"mask_{i}_{class_name}.png")
-            cv2.imwrite(mask_filename, binary_mask)
-            saved_masks.append(mask_filename)
+            # ✅ Solo guardar si metadata_only=False
+            mask_filename = None
+            if not metadata_only:
+                mask_filename = os.path.join(output_dir, f"mask_{i}_{class_name}.png")
+                cv2.imwrite(mask_filename, binary_mask)
+                saved_masks.append(mask_filename)
 
             detected_objects.append({
                 "id": i,
                 "class": class_name,
                 "confidence": float(conf),
                 "bbox": [float(x) for x in box],  # [x1, y1, x2, y2]
-                "mask_path": mask_filename
+                "mask_path": mask_filename  # será None si metadata_only=True
             })
 
     return final_mask, saved_masks, detected_objects
+
 
 
 def remove_objects_from_image(
@@ -94,7 +99,9 @@ def remove_objects_from_image(
     results = model(image_rgb)[0]
 
     # === GENERAR MÁSCARA Y METADATA ===
-    final_mask, _, detected_objects = generate_mask(image_rgb, results, target_labels, output_dir)
+    final_mask, _, detected_objects = generate_mask(
+        image_rgb, results, target_labels, output_dir, metadata_only=metadata_only
+    )
 
     output_data = {
         "image_name": image_name,
