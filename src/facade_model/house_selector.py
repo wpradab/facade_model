@@ -43,9 +43,16 @@ def mask_touches_border(mask: np.ndarray):
 
 
 
-def find_house_in_image(image_path: str, model_path: str, house_label: str = "casa", results_dir: str = "results"):
+def find_house_in_image(
+    image_path: str,
+    model_path: str,
+    house_label: str = "casa",
+    results_dir: str = "results",
+    metadata_only: bool = False,  # <<--- NUEVO PARÁMETRO
+):
     """
-    Segmenta casas y devuelve un diccionario con información de la casa seleccionada.
+    Segmenta casas y devuelve un diccionario con metadata.
+    Si metadata_only=True, retorna solo la metadata sin guardar imágenes.
     """
     os.makedirs(results_dir, exist_ok=True)
 
@@ -53,7 +60,6 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     image_bgr = cv2.imread(image_path)
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     height, width = image_rgb.shape[:2]
-    image_area = width * height
 
     # === Cargar modelo ===
     model = load_yolo_model(model_path)
@@ -80,16 +86,15 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
         if class_name == house_label:
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
-            area_pct = (area / (width * height)) * 100  # área en porcentaje
             center = get_mask_center(binary_mask)
             borders = mask_touches_border(binary_mask)
             houses.append({
                 "id": i,
-                "mask": binary_mask,
-                "area": area_pct,
+                "area": area,
                 "center": center,
-                "box": box,
-                "touch_border": borders
+                "box": [float(x) for x in box],
+                "touch_border": borders,
+                "incomplete_house": len(borders) > 0
             })
 
     if not houses:
@@ -104,25 +109,25 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     img_center = (width // 2, height // 2)
     selected = None
 
-    # 1. Buscar casa que contenga el centro
     for h in houses:
-        if h["mask"][img_center[1], img_center[0]] > 0:
+        if h["center"] and abs(h["center"][0] - img_center[0]) < width * 0.1:
             selected = h
             break
 
-    # 2. Si no hay en el centro → intentar 25% más abajo
-    if selected is None:
-        shifted_center = (width // 2, int(height * 0.75))
-        for h in houses:
-            if h["mask"][shifted_center[1], shifted_center[0]] > 0:
-                selected = h
-                break
-
-    # 3. Si no hay ninguna → tomar la de mayor área
     if selected is None:
         selected = max(houses, key=lambda x: x["area"])
 
-    # === Guardar resultados ===
+    output = {
+        "image": image_path,
+        "houses_count": len(houses),
+        "selected_house": selected
+    }
+
+    # === SOLO METADATA ===
+    if metadata_only:
+        return output
+
+    # === Guardar crops y máscaras SOLO si no es metadata ===
     x1, y1, x2, y2 = map(int, selected["box"])
     cropped_house = image_bgr[y1:y2, x1:x2]
 
@@ -131,22 +136,10 @@ def find_house_in_image(image_path: str, model_path: str, house_label: str = "ca
     mask_path = os.path.join(results_dir, f"{image_name}_mask.png")
 
     cv2.imwrite(cropped_path, cropped_house)
-    cv2.imwrite(mask_path, selected["mask"])
+    cv2.imwrite(mask_path, (masks[selected["id"]] * 255).astype(np.uint8))
 
-    # Diccionario de salida
-    output = {
-        "image": image_path,
-        "houses_count": len(houses),
-        "selected_house": {
-            "id": selected["id"],
-            "area": selected["area"],
-            "center": selected["center"],
-            "box": [float(x) for x in selected["box"]],
-            "touch_border": selected["touch_border"],
-            "incomplete_house": len(selected["touch_border"]) > 0,
-            "mask_path": mask_path,
-            "cropped_path": cropped_path
-        }
-    }
+    output["selected_house"]["mask_path"] = mask_path
+    output["selected_house"]["cropped_path"] = cropped_path
 
     return output
+

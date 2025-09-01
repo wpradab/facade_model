@@ -66,11 +66,11 @@ def remove_objects_from_image(
     target_labels: list,
     base_output_dir: str = "results",
     device: str = None,
+    metadata_only: bool = False,  # <<--- NUEVO PARÁMETRO
 ):
     """
-    Detecta objetos en una imagen y los elimina usando YOLO + LaMa.
-
-    Retorna un diccionario con información de los objetos detectados y rutas de salida.
+    Detecta objetos en una imagen con YOLO.
+    Si metadata_only=True, retorna solo la metadata sin modificar imágenes.
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -93,7 +93,7 @@ def remove_objects_from_image(
     # === INFERENCIA ===
     results = model(image_rgb)[0]
 
-    # === GENERAR MÁSCARA ===
+    # === GENERAR MÁSCARA Y METADATA ===
     final_mask, _, detected_objects = generate_mask(image_rgb, results, target_labels, output_dir)
 
     output_data = {
@@ -104,10 +104,14 @@ def remove_objects_from_image(
         "output_inpainted": None
     }
 
+    # === SOLO METADATA ===
+    if metadata_only:
+        return output_data
+
+    # === CONTINUA CON EL INPAINTING SOLO SI HAY MÁSCARA ===
     if np.any(final_mask):
         cv2.imwrite(output_mask_path, final_mask)
 
-        # === INPAINTING CON LAMA ===
         inpainted = inpaint_img_with_lama(image_rgb, final_mask, lama_config, lama_ckpt, device=device)
         save_array_to_img(inpainted, output_inpainted_path)
 
@@ -117,3 +121,4 @@ def remove_objects_from_image(
         print("No se encontraron objetos a eliminar en la imagen.")
 
     return output_data
+
