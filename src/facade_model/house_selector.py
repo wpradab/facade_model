@@ -43,7 +43,7 @@ def mask_touches_border(mask: np.ndarray):
 
 
 
-def find_objects_in_image(
+def find_house_in_image(
     image_path: str,
     model_path: str,
     target_labels: list = ["casa", "poste"],  # <<< ahora acepta varias etiquetas
