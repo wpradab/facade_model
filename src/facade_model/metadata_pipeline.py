@@ -39,7 +39,7 @@ def extract_facade_metadata(
     # ==============================
     metadata_incomplete_objects = find_house_in_image(
         image_path=image_path,
-        model_path=model_house_path,
+        model_house_path=model_house_path,
         target_labels=target_labels,
         results_dir=base_output_dir,
         metadata_only=True

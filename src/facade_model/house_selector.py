@@ -45,7 +45,7 @@ def mask_touches_border(mask: np.ndarray):
 
 def find_house_in_image(
     image_path: str,
-    model_path: str,
+    model_house_path: str,
     target_labels: list = ["casa", "poste"],  # <<< ahora acepta varias etiquetas
     results_dir: str = "results",
     metadata_only: bool = False,
@@ -62,7 +62,7 @@ def find_house_in_image(
     height, width = image_rgb.shape[:2]
 
     # === Cargar modelo ===
-    model = load_yolo_model(model_path)
+    model = load_yolo_model(model_house_path)
 
     # === Inferencia ===
     results = model(image_rgb)[0]
