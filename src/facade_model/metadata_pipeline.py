@@ -26,6 +26,7 @@ def extract_facade_metadata(
     metadata_remove_objects = remove_objects_from_image(
         image_path=image_path,
         model_path=model_path,
+        post_model_path=model_house_path,
         lama_config=lama_config,
         lama_ckpt=lama_ckpt,
         target_labels=target_labels,
