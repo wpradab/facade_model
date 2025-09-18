@@ -43,15 +43,15 @@ def mask_touches_border(mask: np.ndarray):
 
 
 
-def find_house_in_image(
+def find_objects_in_image(
     image_path: str,
     model_path: str,
-    house_label: str = "casa",
+    target_labels: list = ["casa", "poste"],  # <<< ahora acepta varias etiquetas
     results_dir: str = "results",
-    metadata_only: bool = False,  # <<--- NUEVO PARÁMETRO
+    metadata_only: bool = False,
 ):
     """
-    Segmenta casas y devuelve un diccionario con metadata.
+    Segmenta objetos (casas y postes) y devuelve un diccionario con metadata.
     Si metadata_only=True, retorna solo la metadata sin guardar imágenes.
     """
     os.makedirs(results_dir, exist_ok=True)
@@ -71,8 +71,8 @@ def find_house_in_image(
     if results.masks is None:
         return {
             "image": image_path,
-            "houses_count": 0,
-            "selected_house": None,
+            "objects_count": {label: 0 for label in target_labels},
+            "selected_objects": {label: None for label in target_labels},
             "message": "No se encontraron máscaras en la imagen."
         }
 
@@ -80,65 +80,65 @@ def find_house_in_image(
     classes = results.boxes.cls.cpu().numpy()
     boxes = results.boxes.xyxy.cpu().numpy()
 
-    houses = []
+    # Diccionarios para almacenar resultados por clase
+    objects_by_class = {label: [] for label in target_labels}
+
     for i, (mask, cls_id, box) in enumerate(zip(masks, classes, boxes)):
         class_name = names[int(cls_id)]
-        if class_name == house_label:
+        if class_name in target_labels:
             binary_mask = (mask * 255).astype(np.uint8)
             area = get_mask_area(binary_mask)
             center = get_mask_center(binary_mask)
             borders = mask_touches_border(binary_mask)
-            houses.append({
+
+            objects_by_class[class_name].append({
                 "id": i,
                 "area": area,
                 "center": center,
                 "box": [float(x) for x in box],
                 "touch_border": borders,
-                "incomplete_house": len(borders) > 0
+                "incomplete": len(borders) > 0
             })
 
-    if not houses:
-        return {
-            "image": image_path,
-            "houses_count": 0,
-            "selected_house": None,
-            "message": "No se segmentaron casas en la imagen."
-        }
-
-    # === Estrategia de selección ===
+    # Selección de objeto por clase
     img_center = (width // 2, height // 2)
-    selected = None
+    selected_objects = {}
 
-    for h in houses:
-        if h["center"] and abs(h["center"][0] - img_center[0]) < width * 0.1:
-            selected = h
-            break
+    for label, objs in objects_by_class.items():
+        if not objs:
+            selected_objects[label] = None
+            continue
 
-    if selected is None:
-        selected = max(houses, key=lambda x: x["area"])
+        selected = None
+        for obj in objs:
+            if obj["center"] and abs(obj["center"][0] - img_center[0]) < width * 0.1:
+                selected = obj
+                break
+
+        if selected is None:
+            selected = max(objs, key=lambda x: x["area"])
+
+        selected_objects[label] = selected
+
+        # === Guardar crops y máscaras SOLO si no es metadata ===
+        if not metadata_only and selected:
+            x1, y1, x2, y2 = map(int, selected["box"])
+            cropped_obj = image_bgr[y1:y2, x1:x2]
+
+            image_name = Path(image_path).stem
+            cropped_path = os.path.join(results_dir, f"{image_name}_{label}.jpg")
+            mask_path = os.path.join(results_dir, f"{image_name}_{label}_mask.png")
+
+            cv2.imwrite(cropped_path, cropped_obj)
+            cv2.imwrite(mask_path, (masks[selected["id"]] * 255).astype(np.uint8))
+
+            selected_objects[label]["mask_path"] = mask_path
+            selected_objects[label]["cropped_path"] = cropped_path
 
     output = {
         "image": image_path,
-        "houses_count": len(houses),
-        "selected_house": selected
+        "objects_count": {label: len(objs) for label, objs in objects_by_class.items()},
+        "selected_objects": selected_objects
     }
-
-    # === SOLO METADATA ===
-    if metadata_only:
-        return output
-
-    # === Guardar crops y máscaras SOLO si no es metadata ===
-    x1, y1, x2, y2 = map(int, selected["box"])
-    cropped_house = image_bgr[y1:y2, x1:x2]
-
-    image_name = Path(image_path).stem
-    cropped_path = os.path.join(results_dir, f"{image_name}_house.jpg")
-    mask_path = os.path.join(results_dir, f"{image_name}_mask.png")
-
-    cv2.imwrite(cropped_path, cropped_house)
-    cv2.imwrite(mask_path, (masks[selected["id"]] * 255).astype(np.uint8))
-
-    output["selected_house"]["mask_path"] = mask_path
-    output["selected_house"]["cropped_path"] = cropped_path
 
     return output

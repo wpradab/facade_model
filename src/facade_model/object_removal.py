@@ -71,10 +71,11 @@ def remove_objects_from_image(
     target_labels: list,
     base_output_dir: str = "results",
     device: str = None,
-    metadata_only: bool = False,  # <<--- NUEVO PARÁMETRO
+    metadata_only: bool = False,
+    post_model_path: str = "best.pt"  # <<< nuevo parámetro para el modelo de postes
 ):
     """
-    Detecta objetos en una imagen con YOLO.
+    Detecta objetos en una imagen con 2 modelos YOLO (general + postes).
     Si metadata_only=True, retorna solo la metadata sin modificar imágenes.
     """
     if device is None:
@@ -94,16 +95,26 @@ def remove_objects_from_image(
     image_bgr = cv2.imread(image_path)
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
-    # === CARGAR MODELO YOLO ===
-    model = load_yolo_model(model_path)
+    # === CARGAR MODELOS YOLO ===
+    model_general = load_yolo_model(model_path)
+    model_post = load_yolo_model(post_model_path)
 
-    # === INFERENCIA ===
-    results = model(image_rgb)[0]
+    # === INFERENCIA CON AMBOS MODELOS ===
+    results_general = model_general(image_rgb)[0]
+    results_post = model_post(image_rgb)[0]
 
-    # === GENERAR MÁSCARA Y METADATA ===
-    final_mask, _, detected_objects = generate_mask(
-        image_rgb, results, target_labels, output_dir, metadata_only=metadata_only
+    # === GENERAR MÁSCARAS Y METADATA POR SEPARADO ===
+    mask_general, _, detected_general = generate_mask(
+        image_rgb, results_general, target_labels, output_dir, metadata_only=metadata_only
     )
+
+    mask_post, _, detected_post = generate_mask(
+        image_rgb, results_post, ["poste"], output_dir, metadata_only=metadata_only
+    )
+
+    # === COMBINAR MÁSCARAS Y OBJETOS ===
+    final_mask = cv2.bitwise_or(mask_general, mask_post)
+    detected_objects = detected_general + detected_post
 
     output_data = {
         "image_name": image_name,
@@ -130,4 +141,5 @@ def remove_objects_from_image(
         print("No se encontraron objetos a eliminar en la imagen.")
 
     return output_data
+
 

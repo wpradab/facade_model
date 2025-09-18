@@ -6,19 +6,18 @@ def extract_facade_metadata(
     model_house_path: str,
     lama_config: str,
     lama_ckpt: str,
-    target_labels: list,
+    target_labels: list = ["casa", "poste"],  # <<< ahora se pasan varias etiquetas
     base_output_dir: str = "results",
-    house_label: str = "casa"
 ):
     """
     Extrae metadata de una imagen de fachada:
-      1. Detección de objetos a remover (sin guardado de imágenes).
-      2. Detección de casas incompletas (sin guardado de imágenes).
+      1. Detección de objetos a remover (solo metadata).
+      2. Detección de casas y postes incompletos (solo metadata).
 
     Retorna:
         dict con:
             - metadata_remove_objects
-            - metadata_incomplete_house
+            - metadata_incomplete_objects
     """
 
     # ==============================
@@ -35,12 +34,12 @@ def extract_facade_metadata(
     )
 
     # ==============================
-    # 2. Selección de casas (solo metadata)
+    # 2. Selección de objetos (casa y poste) (solo metadata)
     # ==============================
-    metadata_incomplete_house = find_house_in_image(
+    metadata_incomplete_objects = find_objects_in_image(
         image_path=image_path,
         model_path=model_house_path,
-        house_label=house_label,
+        target_labels=target_labels,
         results_dir=base_output_dir,
         metadata_only=True
     )
@@ -50,5 +49,5 @@ def extract_facade_metadata(
     # ==============================
     return {
         "metadata_remove_objects": metadata_remove_objects,
-        "metadata_incomplete_house": metadata_incomplete_house
+        "metadata_incomplete_objects": metadata_incomplete_objects
     }
