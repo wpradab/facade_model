@@ -142,4 +142,3 @@ def find_house_in_image(
     output["selected_house"]["cropped_path"] = cropped_path
 
     return output
-
