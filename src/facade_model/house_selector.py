@@ -65,7 +65,7 @@ def find_house_in_image(
     model = load_yolo_model(model_house_path)
 
     # === Inferencia ===
-    results = model(image_rgb)[0]
+    results = model(image_rgb, conf=0.7)[0]
     names = results.names
 
     if results.masks is None:
