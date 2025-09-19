@@ -31,13 +31,13 @@ def mask_touches_border(mask: np.ndarray):
     """
     h, w = mask.shape
     borders = []
-    if np.any(mask[:, 0]):   # Izquierda
+    if np.any(mask[:, 0:20]):   # Izquierda
         borders.append("left")
-    if np.any(mask[:, -1]):  # Derecha
+    if np.any(mask[:, -1:-20]):  # Derecha
         borders.append("right")
-    if np.any(mask[0, :]):   # Arriba
+    if np.any(mask[0:20, :]):   # Arriba
         borders.append("top")
-    if np.any(mask[-1, :]):  # Abajo
+    if np.any(mask[-1:-20, :]):  # Abajo
         borders.append("bottom")
     return borders
 
